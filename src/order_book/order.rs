@@ -7,7 +7,7 @@ pub enum OrderSide {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OrderType {
     MARKET,
-    LIMIT,
+    LIMIT { price: u64 },
 }
 
 #[derive(Debug, Clone)]
@@ -19,4 +19,5 @@ pub struct Order {
     pub quantity: u64,
     pub timestamp: u128,
     pub trader_id: String,
+    pub limit_price: u64,
 }

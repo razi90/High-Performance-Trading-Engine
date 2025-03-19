@@ -85,7 +85,8 @@ impl OrderBook {
                     self.place_remaining_buy_order(order);
                 }
             }
-            OrderType::LIMIT(limit_price) => {
+
+            OrderType::LIMIT { price: limit_price } => {
                 while order.quantity > 0 && !self.sell_side.is_empty() {
                     let lowest_sell_price = self.sell_side.keys().next().cloned();
                 }
