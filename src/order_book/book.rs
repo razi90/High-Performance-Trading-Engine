@@ -1,12 +1,13 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
-use super::{Order, OrderSide, OrderType};
+use super::{Order, OrderSide, OrderType, TradeRecorder};
 
 pub struct OrderBook {
     buy_side: BTreeMap<u64, VecDeque<Order>>,
     sell_side: BTreeMap<u64, VecDeque<Order>>,
     next_order_id: Arc<Mutex<u64>>,
+    trade_recorder: Option<TradeRecorder>,
 }
 
 impl OrderBook {
@@ -15,7 +16,12 @@ impl OrderBook {
             buy_side: BTreeMap::new(),
             sell_side: BTreeMap::new(),
             next_order_id: Arc::new(Mutex::new(1)),
+            trade_recorder: None,
         }
+    }
+
+    pub fn set_trade_recorder(&mut self, recorder: TradeRecorder) {
+        self.trade_recorder = Some(recorder);
     }
 
     fn generate_order_id(&self) -> u64 {
@@ -44,7 +50,7 @@ impl OrderBook {
         match order.order_type {
             OrderType::MARKET => {
                 while order.quantity > 0 && !self.sell_side.is_empty() {
-                    let lowest_sell_price = self.sell_side.keys().next().unwrap();
+                    let lowest_sell_price = *self.sell_side.keys().next().unwrap();
 
                     if let Some(sell_orders) = self.sell_side.get_mut(&lowest_sell_price) {
                         if let Some(mut sell_order) = sell_orders.pop_front() {
@@ -54,13 +60,6 @@ impl OrderBook {
                                 order.quantity = 0;
 
                                 sell_orders.push_front(sell_order);
-
-                                self.record_trade(
-                                    order.id,
-                                    sell_order.id,
-                                    order.quantity,
-                                    *lowest_sell_price,
-                                );
                             } else {
                                 let filled_quantity = sell_order.quantity;
 
@@ -69,13 +68,6 @@ impl OrderBook {
                                 if sell_orders.is_empty() {
                                     self.sell_side.remove(&lowest_sell_price);
                                 }
-
-                                self.record_trade(
-                                    order.id,
-                                    sell_order.id,
-                                    filled_quantity,
-                                    *lowest_sell_price,
-                                );
                             }
                         }
                     }
@@ -108,10 +100,5 @@ impl OrderBook {
             .entry(order.price)
             .or_insert_with(VecDeque::new)
             .push_back(order);
-    }
-    // Helper method to record trades
-    fn record_trade(&mut self, buy_order_id: u64, sell_order_id: u64, quantity: u64, price: u64) {
-        // Implementation to log or track trades
-        // Could push to a trades vector, send to external system, etc.
     }
 }
