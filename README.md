@@ -80,8 +80,8 @@ The trading engine aims to create a robust, efficient, and scalable system for:
 
 ### Installation
 ```bash
-git clone https://github.com/yourusername/trading-engine.git
-cd trading-engine
+git clone https://github.com/razi90/High-Performance-Trading-Engine.git
+cd High-Performance-Trading-Engine
 cargo build --release
 ```
 
