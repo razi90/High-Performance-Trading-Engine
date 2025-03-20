@@ -1,13 +1,13 @@
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum OrderSide {
-    BUY,
-    SELL,
+    Buy,
+    Sell,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OrderType {
-    MARKET,
-    LIMIT { price: u64 },
+    Market,
+    Limit { price: u64 },
 }
 
 #[derive(Debug, Clone)]

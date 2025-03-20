@@ -37,54 +37,65 @@ impl OrderBook {
         }
 
         order.id = self.generate_order_id();
-
-        match order.side {
-            OrderSide::BUY => self.process_buy_order(order),
-            OrderSide::SELL => self.process_sell_order(order),
-        }
+        self.process_order(order);
 
         Ok(())
     }
 
-    fn process_buy_order(&mut self, mut order: Order) {
+    fn process_order(&mut self, mut order: Order) {
         match order.order_type {
-            OrderType::MARKET => self.match_order(&mut order, None),
-            OrderType::LIMIT { price: limit_price } => {
+            OrderType::Market => self.match_order(&mut order, None),
+            OrderType::Limit { price: limit_price } => {
                 self.match_order(&mut order, Some(limit_price))
             }
         }
     }
 
     fn match_order(&mut self, order: &mut Order, limit_price: Option<u64>) {
-        while order.quantity > 0 && !self.sell_side.is_empty() {
-            let lowest_sell_price = *self.sell_side.keys().next().unwrap();
+        let opposite_side = match order.side {
+            OrderSide::Buy => &mut self.sell_side,
+            OrderSide::Sell => &mut self.buy_side,
+        };
 
-            // Check limit price if applicable
-            if let Some(price_limit) = limit_price {
-                if lowest_sell_price > price_limit {
-                    break;
+        while order.quantity > 0 && !opposite_side.is_empty() {
+            let matching_price = *opposite_side.keys().next().unwrap();
+
+            // Limit price check with different logic for buy and sell
+            match (order.side, limit_price) {
+                (OrderSide::Buy, Some(limit_price)) => {
+                    // For buy order, only match if matching price is less than or equal to limit price
+                    if matching_price > limit_price {
+                        break;
+                    }
                 }
+                (OrderSide::Sell, Some(limit_price)) => {
+                    // For sell order, only match if matching price is greater than or equal to limit price
+                    if matching_price < limit_price {
+                        break;
+                    }
+                }
+                _ => {} // No limit price check for market orders
             }
 
-            if let Some(sell_orders) = self.sell_side.get_mut(&lowest_sell_price) {
-                if let Some(mut sell_order) = sell_orders.pop_front() {
-                    if sell_order.quantity > order.quantity {
-                        // Partial fill of sell order
-                        sell_order.quantity -= order.quantity;
+            if let Some(matching_orders) = opposite_side.get_mut(&matching_price) {
+                if let Some(mut matching_order) = matching_orders.pop_front() {
+                    if matching_order.quantity > order.quantity {
+                        // Partial fill of matching order
+                        matching_order.quantity -= order.quantity;
                         order.quantity = 0;
 
-                        // Put partially filled sell order back
-                        sell_orders.push_front(sell_order);
+                        // Put partially filled matching order back
+                        matching_orders.push_front(matching_order);
                     } else {
-                        // Full fill of sell order
-                        let filled_quantity = sell_order.quantity;
+                        // Full fill of matching order
+                        let filled_quantity = matching_order.quantity;
 
-                        // Reduce buy order quantity
+                        // Reduce original order quantity
                         order.quantity -= filled_quantity;
 
                         // Remove price level if no orders left
-                        if sell_orders.is_empty() {
-                            self.sell_side.remove(&lowest_sell_price);
+                        if matching_orders.is_empty() {
+                            opposite_side.remove(&matching_price);
                         }
                     }
                 }
@@ -93,21 +104,17 @@ impl OrderBook {
 
         // Place remaining order if not fully filled
         if order.quantity > 0 {
-            self.place_remaining_buy_order(order.clone());
+            self.place_remaining_order(order.clone());
         }
     }
 
-    fn process_sell_order(&mut self, order: Order) {}
+    fn place_remaining_order(&mut self, order: Order) {
+        let book_side = match order.side {
+            OrderSide::Buy => &mut self.buy_side,
+            OrderSide::Sell => &mut self.sell_side,
+        };
 
-    fn place_remaining_buy_order(&mut self, order: Order) {
-        self.buy_side
-            .entry(order.price)
-            .or_insert_with(VecDeque::new)
-            .push_back(order);
-    }
-
-    fn place_remaining_sell_order(&mut self, order: Order) {
-        self.sell_side
+        book_side
             .entry(order.price)
             .or_insert_with(VecDeque::new)
             .push_back(order);
