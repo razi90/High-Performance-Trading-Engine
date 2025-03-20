@@ -48,41 +48,52 @@ impl OrderBook {
 
     fn process_buy_order(&mut self, mut order: Order) {
         match order.order_type {
-            OrderType::MARKET => {
-                while order.quantity > 0 && !self.sell_side.is_empty() {
-                    let lowest_sell_price = *self.sell_side.keys().next().unwrap();
+            OrderType::MARKET => self.match_order(&mut order, None),
+            OrderType::LIMIT { price: limit_price } => {
+                self.match_order(&mut order, Some(limit_price))
+            }
+        }
+    }
 
-                    if let Some(sell_orders) = self.sell_side.get_mut(&lowest_sell_price) {
-                        if let Some(mut sell_order) = sell_orders.pop_front() {
-                            if sell_order.quantity > order.quantity {
-                                sell_order.quantity -= order.quantity;
+    fn match_order(&mut self, order: &mut Order, limit_price: Option<u64>) {
+        while order.quantity > 0 && !self.sell_side.is_empty() {
+            let lowest_sell_price = *self.sell_side.keys().next().unwrap();
 
-                                order.quantity = 0;
+            // Check limit price if applicable
+            if let Some(price_limit) = limit_price {
+                if lowest_sell_price > price_limit {
+                    break;
+                }
+            }
 
-                                sell_orders.push_front(sell_order);
-                            } else {
-                                let filled_quantity = sell_order.quantity;
+            if let Some(sell_orders) = self.sell_side.get_mut(&lowest_sell_price) {
+                if let Some(mut sell_order) = sell_orders.pop_front() {
+                    if sell_order.quantity > order.quantity {
+                        // Partial fill of sell order
+                        sell_order.quantity -= order.quantity;
+                        order.quantity = 0;
 
-                                order.quantity -= filled_quantity;
+                        // Put partially filled sell order back
+                        sell_orders.push_front(sell_order);
+                    } else {
+                        // Full fill of sell order
+                        let filled_quantity = sell_order.quantity;
 
-                                if sell_orders.is_empty() {
-                                    self.sell_side.remove(&lowest_sell_price);
-                                }
-                            }
+                        // Reduce buy order quantity
+                        order.quantity -= filled_quantity;
+
+                        // Remove price level if no orders left
+                        if sell_orders.is_empty() {
+                            self.sell_side.remove(&lowest_sell_price);
                         }
                     }
                 }
-
-                if order.quantity > 0 {
-                    self.place_remaining_buy_order(order);
-                }
             }
+        }
 
-            OrderType::LIMIT { price: limit_price } => {
-                while order.quantity > 0 && !self.sell_side.is_empty() {
-                    let lowest_sell_price = self.sell_side.keys().next().cloned();
-                }
-            }
+        // Place remaining order if not fully filled
+        if order.quantity > 0 {
+            self.place_remaining_buy_order(order.clone());
         }
     }
 
