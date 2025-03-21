@@ -31,7 +31,7 @@ impl OrderBook {
         next_id
     }
 
-    fn place_order(&mut self, mut order: Order) -> Result<(), &'static str> {
+    pub fn place_order(&mut self, mut order: Order) -> Result<(), &'static str> {
         if order.quantity == 0 {
             return Err("Cannot place order with zero quantity");
         }

@@ -19,5 +19,4 @@ pub struct Order {
     pub quantity: u64,
     pub timestamp: u128,
     pub trader_id: String,
-    pub limit_price: u64,
 }

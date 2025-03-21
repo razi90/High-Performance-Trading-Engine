@@ -58,7 +58,7 @@ The trading engine aims to create a robust, efficient, and scalable system for:
 
 ## Development Roadmap
 
-- [ ] Basic order book structure
+- [x] Basic order book structure
 - [ ] Advanced matching algorithms
 - [ ] Market data parser
 - [ ] Risk management system
